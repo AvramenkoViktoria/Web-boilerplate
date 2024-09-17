@@ -183,3 +183,13 @@ function filterUsers(users: User[], filters: Partial<User>): User[] {
         });
     });
 }
+
+function findUser(users: User[], param: string | number) {
+    return users.filter((user) => {
+        return Object.values(user).some((value) => value === param);
+    });
+}
+
+const teacher: User[] = findUser(uniteTwoDataLists(), 'Iran');
+
+console.log(teacher);
