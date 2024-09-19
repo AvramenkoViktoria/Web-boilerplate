@@ -1807,7 +1807,7 @@ export const additionalUsers = [
     {
         gender: 'male',
         title: 'Mr',
-        full_name: 'Norbert Weishaupt',
+        full_name: 'norbert Weishaupt',
         city: 'Rhön-Grabfeld',
         state: 'Mecklenburg-Vorpommern',
         country: 'Germany',
@@ -1821,7 +1821,7 @@ export const additionalUsers = [
         favorite: true,
         course: null,
         bg_color: '#1f75cb',
-        note: null,
+        note: 'hihihi',
     },
     {
         gender: 'male',

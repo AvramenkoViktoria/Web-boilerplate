@@ -87,8 +87,6 @@ function uniteTwoDataLists(): User[] {
             ...user,
             ...additionalFields,
         };
-
-        return user;
     });
 
     return unitedUsers;
@@ -127,11 +125,11 @@ function validEmailFormat(input: string): boolean {
     return regex.test(input);
 }
 
-function validateProfiles() {
-    const users = uniteTwoDataLists();
-
+function validateProfiles(users: User[]): User[] {
     const wrongProfiles: User[] = [];
-    const validatedUsers = users.map((user) => {
+    const correctProfiles: User[] = [];
+
+    users.forEach((user) => {
         const fieldsToCheck = [
             user.full_name,
             user.gender,
@@ -141,7 +139,7 @@ function validateProfiles() {
             user.country,
         ];
 
-        fieldsToCheck.forEach((field) => {
+        const isInvalidField = fieldsToCheck.some((field) => {
             if (
                 typeof field !== 'string' ||
                 !(field.charAt(0) === field.charAt(0).toUpperCase())
@@ -150,6 +148,11 @@ function validateProfiles() {
                 return;
             }
         });
+
+        if (isInvalidField) {
+            wrongProfiles.push(user);
+            return;
+        }
 
         if (typeof user.age !== 'number') {
             wrongProfiles.push(user);
@@ -165,31 +168,176 @@ function validateProfiles() {
             wrongProfiles.push(user);
             return;
         }
+
+        correctProfiles.push(user);
     });
 
-    wrongProfiles.forEach((profile) => {
-        console.log(profile);
-    });
+    console.log(wrongProfiles);
+
+    return correctProfiles;
 }
 
-function filterUsers(users: User[], filters: Partial<User>): User[] {
+// validateProfiles(uniteTwoDataLists());
+
+function parseAgeFilter(ageFilter: string): (age: number) => boolean {
+    const rangeRegex =
+        /^(>|>=|<|<=)?\s*(\d+)\s*(and)?\s*(>|>=|<|<=)?\s*(\d+)?$/;
+    const match = ageFilter.match(rangeRegex);
+
+    if (!match) {
+        throw new Error(`Invalid age filter format: ${ageFilter}`);
+    }
+
+    const [_, operator1, num1, conjunction, operator2, num2] = match;
+
+    const lowerBoundCheck = (age: number) => {
+        if (!operator1) return true;
+        const lowerBound = parseInt(num1, 10);
+        switch (operator1) {
+            case '>':
+                return age > lowerBound;
+            case '>=':
+                return age >= lowerBound;
+            case '<':
+                return age < lowerBound;
+            case '<=':
+                return age <= lowerBound;
+            default:
+                return true;
+        }
+    };
+
+    const upperBoundCheck = (age: number) => {
+        if (!operator2 || !num2) return true;
+        const upperBound = parseInt(num2, 10);
+        switch (operator2) {
+            case '>':
+                return age > upperBound;
+            case '>=':
+                return age >= upperBound;
+            case '<':
+                return age < upperBound;
+            case '<=':
+                return age <= upperBound;
+            default:
+                return true;
+        }
+    };
+
+    return (age: number) => lowerBoundCheck(age) && upperBoundCheck(age);
+}
+
+// const ageFilterFunc = parseAgeFilter('>20 <30');
+// console.log(ageFilterFunc(25));
+
+interface filterFields {
+    age?: string;
+    country?: string;
+    gender?: string;
+    favorite?: string;
+}
+
+function filterUsers(users: User[], filters: filterFields): User[] {
     return users.filter((user) => {
         return Object.entries(filters).every(([key, filterValue]) => {
             if (filterValue === undefined || filterValue === null) return true;
 
-            const userValue = user[key as keyof User];
+            if (key === 'age' && typeof filterValue === 'string') {
+                try {
+                    const ageFilterFunc = parseAgeFilter(filterValue);
+                    return ageFilterFunc(user.age);
+                } catch (error) {
+                    console.error(error);
+                    return false;
+                }
+            }
 
+            const userValue = user[key as keyof User];
             return userValue === filterValue;
         });
     });
 }
 
-function findUser(users: User[], param: string | number) {
-    return users.filter((user) => {
-        return Object.values(user).some((value) => value === param);
+// const filters = {
+//     age: '>10 <80',
+//     country: 'Germany',
+// };
+// console.log(filterUsers(uniteTwoDataLists(), filters));
+
+function sortUsers(users: User[], param: string, ascending: boolean): User[] {
+    return users.sort((a, b) => {
+        let fieldA = a[param];
+        let fieldB = b[param];
+
+        if (typeof fieldA === 'string' && typeof fieldB === 'string') {
+            if (param === 'b_date') {
+                const dateA = new Date(fieldA);
+                const dateB = new Date(fieldB);
+
+                if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+                    console.error(
+                        `Invalid date format: ${fieldA} or ${fieldB}`,
+                    );
+                    return 0;
+                }
+
+                return ascending
+                    ? dateB.getTime() - dateA.getTime()
+                    : dateA.getTime() - dateB.getTime();
+            }
+
+            return ascending
+                ? fieldA.localeCompare(fieldB)
+                : fieldB.localeCompare(fieldA);
+        }
+
+        return ascending
+            ? fieldA > fieldB
+                ? 1
+                : -1
+            : fieldA < fieldB
+            ? 1
+            : -1;
     });
 }
 
-const teacher: User[] = findUser(uniteTwoDataLists(), 'Iran');
+// const sortedUsers = sortUsers(uniteTwoDataLists(), 'b_date', true);
+// console.log(sortedUsers);
 
-console.log(teacher);
+// const sortedUsers = sortUsers(uniteTwoDataLists(), 'age', false);
+// console.log(sortedUsers);
+
+// const sortedUsers = sortUsers(uniteTwoDataLists(), 'b_day', true);
+// console.log(sortedUsers);
+
+function findUsers(users: User[], param: string | number): User[] {
+    return users.filter((user) => {
+        if (
+            typeof param == 'string' &&
+            (param.startsWith('>') || param.startsWith('<'))
+        ) {
+            try {
+                const ageFilterFunc = parseAgeFilter(param);
+                return ageFilterFunc(user.age);
+            } catch (error) {
+                console.error(error);
+                throw error;
+            }
+        } else {
+            return Object.values(user).some((value) => value === param);
+        }
+    });
+}
+
+// const teachers: User[] = findUsers(uniteTwoDataLists(), 'Iran');
+// console.log(teachers);
+
+// const foundUsers = findUsers(uniteTwoDataLists(), '>64 <66');
+// console.log(foundUsers);
+
+// const foundUsers = findUsers(uniteTwoDataLists(), '><64 <66');
+// console.log(foundUsers);
+
+function calculatePercentage(users: User[], foundUsers: User[]) {
+    return (foundUsers.length / users.length) * 100;
+}
